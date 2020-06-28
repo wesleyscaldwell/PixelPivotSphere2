@@ -9,7 +9,7 @@
 
 
 //#include <ESP8266WebServer.h>
-//#include <ESP8266mDNS.h>
+//#include <ESP8266mDNS.h>vv
 //#include <WiFi.h>
 //#include <WiFiServer.h>
 
@@ -94,6 +94,9 @@ uint8_t IN8Rev = ConfigPin8Rev;
 
 int Step28MotorSteps = 0;
 
+int MovementStepsVertical = 0;
+int MovementStepsHorizontal = 0;
+
 void setup(void) {
 
 	EEPROM.begin(512);
@@ -108,17 +111,17 @@ void setup(void) {
 	pinMode(ButtonVertDown, INPUT_PULLUP);
 	pinMode(ButtonHorzCW, INPUT_PULLUP);
 	pinMode(ButtonVertCCW, INPUT_PULLUP);
-	
+
 	pinMode(ConfigPin1, OUTPUT);
 	pinMode(ConfigPin2, OUTPUT);
 	pinMode(ConfigPin3, OUTPUT);
 	pinMode(ConfigPin4, OUTPUT);
-	
+
 	pinMode(ConfigPin5, OUTPUT);
 	pinMode(ConfigPin6, OUTPUT);
 	pinMode(ConfigPin7, OUTPUT);
 	pinMode(ConfigPin8, OUTPUT);
-	
+
 	pinMode(ConfigPin5Rev, OUTPUT);
 	pinMode(ConfigPin6Rev, OUTPUT);
 	pinMode(ConfigPin7Rev, OUTPUT);
@@ -173,6 +176,11 @@ void setup(void) {
 	server.on("/paramtest", []() {    server.send(200, "text/plain", server.arg("PARAM1"));  });
 	server.on("/SetMotorLocation", []() {   String msg = SetMotorTemp();  server.send(200, "text/plain", msg);  });
 	server.on("/SetPhotoActions", []() { PhotoSphereActions = server.arg("ACTIONS");  PhotoSphereActions.replace("x", "+");   EepromSave(eepromActionsStart, eepromActionsLen, PhotoSphereActions);  server.send(200, "text/plain", PhotoSphereActions);  });
+	server.on("/ResetPendingSteps", []() { MovementStepsHorizontal = 0;  MovementStepsVertical = 0;  server.send(200, "text/plain", "Reset Complete");  });
+	server.on("/SavePendingSteps", []() { UpdatePhotoSphereActions();  });
+
+
+
 
 	server.on("/RunPhotoSphere", []() {  ProcessPictureSphere();  });
 
@@ -189,7 +197,7 @@ void setup(void) {
 
 void loop() {
 	server.handleClient();
-	
+
 
 	int sensorVertUp = digitalRead(ButtonVertUp);
 	int sensorVertDown = digitalRead(ButtonVertDown);
@@ -197,11 +205,11 @@ void loop() {
 	int sensorHorzCCW = digitalRead(ButtonVertCCW);
 
 	if (sensorVertUp == HIGH) { Direction = 1; ProcessStep28MotorAction(50, 5, 1, 2); }
-	if (sensorVertDown == HIGH) { Direction = 0; ProcessStep28MotorAction(50, 5, 1, 2);  }
+	if (sensorVertDown == HIGH) { Direction = 0; ProcessStep28MotorAction(50, 5, 1, 2); }
 
 	if (sensorHorzCW == HIGH) { Direction = 1; ProcessStep28MotorAction(50, 5, 1, 1); }
 	if (sensorHorzCCW == HIGH) { Direction = 0; ProcessStep28MotorAction(50, 5, 1, 1); }
-	
+
 }
 
 //===============================================================
@@ -286,6 +294,53 @@ void ProcessPictureSphere()
 	msg.replace("\n", "<br />");
 	server.send(200, "text/plain", msg);
 }
+
+void UpdatePhotoSphereActions()
+{
+	try
+	{
+		Serial.println("A");
+		PhotoSphereActions.trim();
+		if (MovementStepsHorizontal != 0) {
+			if (MovementStepsHorizontal >= 0)
+			{
+				PhotoSphereActions += ";h+" + String(MovementStepsHorizontal); Serial.println("B");
+			}
+			else
+			{
+				PhotoSphereActions += ";h" + String(MovementStepsHorizontal); Serial.println("C");
+			}
+		}
+		if (MovementStepsVertical != 0) {
+			if (MovementStepsVertical >= 0) {
+				PhotoSphereActions += ";v+" + String(MovementStepsVertical); Serial.println("D");
+			}
+			else
+			{
+				PhotoSphereActions += ";v" + String(MovementStepsVertical); Serial.println("E");
+			}
+		}
+		Serial.println("F");
+
+		MovementStepsHorizontal = 0;
+		MovementStepsVertical = 0;
+
+		Serial.println("G");
+
+		EepromSave(eepromActionsStart, eepromActionsLen, PhotoSphereActions);
+
+
+		String tempActions = PhotoSphereActions;
+		tempActions.replace("+", "x");
+		tempActions.trim();
+		server.send(200, "text/html", tempActions); //Send web page
+	}
+	catch (std::exception e)
+	{
+		server.send(200, "text/plain", String(e.what()));
+	}
+}
+
 
 int SplitString(String oneLine, String sa[])
 {
@@ -375,15 +430,16 @@ String SetMotorTemp()
 		if (server.hasArg("MOTORNUMBER")) {
 			motorNumber = server.arg("MOTORNUMBER").toInt();
 		}
-		msg += "Motor #: " + String(motorNumber) + " \n\n";
-		msg += "Value A: " + String(clockWise) + " \n\n";
-		msg += "Value B: " + String(steps) + " \n\n";
-		msg += "Value D: " + String(Direction) + " \n\n";
 
 		ProcessStep28MotorAction(steps, delayValue, turnOffMotor, motorNumber);
 
+		msg += "Motor #		: " + String(motorNumber) + " \n";
+		msg += "Clock Wise	: " + String(clockWise) + " \n";
+		msg += "Steps		: " + String(steps) + " \n";
+		msg += "Hor Steps	: " + String(MovementStepsHorizontal) + " \n";
+		msg += "Ver Steps	: " + String(MovementStepsVertical) + " \n";
 
-		msg += "Stage - 2 \n\n";
+		msg += "Stage - 2 \n";
 		rotationInfo = rotationInfo + "Starting Rotation Set" + "\n";
 
 
@@ -408,10 +464,20 @@ void ProcessStep28MotorAction(int steps, int delayValue, bool turnOffMotor, int 
 
 	if (motorNum == 1)
 	{
+		if (Direction)
+			MovementStepsHorizontal += steps;
+		else
+			MovementStepsHorizontal -= steps;
+
 		TurnMotorLeftRight(steps, delayValue);
 	}
 	else if (motorNum == 2)
 	{
+		if (Direction)
+			MovementStepsVertical += steps;
+		else
+			MovementStepsVertical -= steps;
+
 		TurnMotorUpDown(steps, delayValue);
 	}
 
