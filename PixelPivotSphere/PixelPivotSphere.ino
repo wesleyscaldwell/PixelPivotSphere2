@@ -257,6 +257,8 @@ void ProcessPictureSphere()
 			String rotationClock = x.substring(1, 2);
 			String rotationSteps = x.substring(2, 6);
 			String repeaterCount = x.substring(6, 8);
+			String sleepCount = x.substring(8, 12);
+
 			Serial.println("Step Info: ");
 			Serial.print("Up / Down: ");
 			Serial.print(rotationAxis);
@@ -266,6 +268,8 @@ void ProcessPictureSphere()
 			Serial.println(rotationSteps);
 			Serial.print(" | Repeat Count: ");
 			Serial.println(repeaterCount);
+			Serial.print(" | Sleep Count: ");
+			Serial.println(sleepCount);
 
 			msg += "Step Info:  \n";
 			msg += "Up / Down:  ";
@@ -278,10 +282,13 @@ void ProcessPictureSphere()
 			bool clockWise = rotationClock == "-";
 			int steps = rotationSteps.toInt();
 			int repeatProcessCount = 1;
+			int sleepCountInt = 2500;
 			Direction = clockWise;    //!Direction;  
 
 			if (repeaterCount.length() > 0)
 				repeatProcessCount = repeaterCount.toInt();
+			if (sleepCount.length() > 0)
+				sleepCountInt = sleepCount.toInt();
 
 
 			for (int loopNum = 1; loopNum <= repeatProcessCount; loopNum++)   //sizeof(eventListArray)
@@ -294,7 +301,7 @@ void ProcessPictureSphere()
 				{
 					ProcessStep28MotorAction(steps, 10, false, 1);
 				}
-				delay(2500);
+				delay(sleepCountInt);
 			}
 		}
 	}
