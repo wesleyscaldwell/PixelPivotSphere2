@@ -256,8 +256,8 @@ void ProcessPictureSphere()
 			String rotationAxis = x.substring(0, 1);
 			String rotationClock = x.substring(1, 2);
 			String rotationSteps = x.substring(2, 6);
-			String repeaterCount = x.substring(6, 8);
-			String sleepCount = x.substring(8, 12);
+			String repeaterCount = x.substring(6, 10);
+			String sleepCount = x.substring(10, 15);
 
 			Serial.println("Step Info: ");
 			Serial.print("Up / Down: ");
@@ -278,6 +278,10 @@ void ProcessPictureSphere()
 			msg += rotationClock + " ";
 			msg += " | Step:  ";
 			msg += rotationSteps + " ";
+			msg += " | repeater count:  ";
+			msg += repeaterCount + " ";
+			msg += " | sleep:  ";
+			msg += sleepCount + " ";
 
 			bool clockWise = rotationClock == "-";
 			int steps = rotationSteps.toInt();
